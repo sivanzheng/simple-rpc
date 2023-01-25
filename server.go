@@ -34,7 +34,7 @@ func NewServer() *Server {
 // DefaultServer 是 *Server 的默认实例
 var DefaultServer = NewServer()
 
-// Accept 在侦听连接并为每个传入连接提供请求。
+// Accept 在侦听连接并为每个传入连接提供请求
 func (server *Server) Accept(listener net.Listener) {
 	// net.Listener 作为参数
 	// for 循环等待 socket 连接建立
@@ -49,7 +49,7 @@ func (server *Server) Accept(listener net.Listener) {
 	}
 }
 
-// Accept 在侦听连接并为每个传入连接提供请求。
+// Accept 在侦听连接并为每个传入连接提供请求
 func Accept(lis net.Listener) {
 	DefaultServer.Accept(lis)
 }
@@ -149,6 +149,6 @@ func (server *Server) sendResponse(cc codec.Codec, h *codec.Header, body interfa
 func (server *Server) handleRequest(cc codec.Codec, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Println(req.h, req.argv.Elem())
-	req.reply = reflect.ValueOf(fmt.Sprintf("rpc res %s", req.h.Seq))
+	req.reply = reflect.ValueOf(fmt.Sprintf("rpc res %d", req.h.Seq))
 	server.sendResponse(cc, req.h, req.reply.Interface(), sending)
 }
