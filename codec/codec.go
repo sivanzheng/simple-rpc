@@ -4,7 +4,7 @@ import "io"
 
 type Header struct {
 	ServiceMethod string // 服务名和方法名，通常与 Go 语言中的结构体和方法相映射
-	Seq           string // 请求的序号，用来区分不同的请求
+	Seq           uint64 // 请求的序号，用来区分不同的请求
 	Error         string // 错误信息，客户端置为空，服务端如果如果发生错误，将错误信息置于 Error 中
 }
 
