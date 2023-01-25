@@ -149,6 +149,6 @@ func (server *Server) sendResponse(cc codec.Codec, h *codec.Header, body interfa
 func (server *Server) handleRequest(cc codec.Codec, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
 	defer wg.Done()
 	log.Println(req.h, req.argv.Elem())
-	req.reply = reflect.ValueOf(fmt.Sprintf("rpc res %s", req.h.Seq))
+	req.reply = reflect.ValueOf(fmt.Sprintf("rpc res %d", req.h.Seq))
 	server.sendResponse(cc, req.h, req.reply.Interface(), sending)
 }
