@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"reflect"
 	"rpc/codec"
 	"strings"
@@ -212,6 +213,42 @@ func (server *Server) Register(serviceObject interface{}) error {
 // Register 在 DefaultServer 中发布接收器的方法
 func Register(serviceObject interface{}) error {
 	return DefaultServer.Register(serviceObject)
+}
+
+const (
+	connected        = "200 Connected to RPC"
+	defaultRPCPath   = "/_rpc_"
+	defaultDebugPath = "/debug/rpc"
+)
+
+// ServerHTTP 接收 CONNECT 类型的 HTTP 请求，并通过底层 TCP 连接进行 RPC 调用的处理
+func (server *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "CONNECT" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = io.WriteString(w, "405 must CONNECT\n")
+		return
+	}
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		log.Print("rpc hijacking ", req.RemoteAddr, ": ", err.Error())
+		return
+	}
+	_, _ = io.WriteString(conn, "HTTP/1.0 "+connected+"\n\n")
+	server.ServeConn(conn)
+}
+
+// HandleHTTP 在 rpcPath 上注册 RPC 消息的 HTTP 处理程序
+// 通常在 go 中仍然需要调用 http.Serve()
+func (server *Server) HandleHTTP() {
+	http.Handle(defaultRPCPath, server)
+	http.Handle(defaultDebugPath, debugHTTP{server})
+	log.Println("rpc server debug path:", defaultDebugPath)
+}
+
+// HandleHTTP 是默认服务器注册 HTTP 处理程序的便捷方法
+func HandleHTTP() {
+	DefaultServer.HandleHTTP()
 }
 
 // findService 返回服务和方法的类型
