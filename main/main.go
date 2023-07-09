@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"net/http"
 	"rpc"
 	"sync"
 	"time"
@@ -18,26 +19,17 @@ func (f Foo) Sum(args Args, reply *int) error {
 	return nil
 }
 
-func startServer(addr chan string) {
+func startServer(addrCh chan string) {
 	var foo Foo
-	if err := rpc.Register(&foo); err != nil {
-		log.Fatal("register error:", err)
-	}
-	// pick a free port
-	l, err := net.Listen("tcp", ":0")
-	if err != nil {
-		log.Fatal("network error:", err)
-	}
-	log.Println("start rpc server on", l.Addr())
-	addr <- l.Addr().String()
-	rpc.Accept(l)
+	l, _ := net.Listen("tcp", ":9999")
+	_ = rpc.Register(&foo)
+	rpc.HandleHTTP()
+	addrCh <- l.Addr().String()
+	_ = http.Serve(l, nil)
 }
 
-func main() {
-	log.SetFlags(0)
-	addr := make(chan string)
-	go startServer(addr)
-	client, _ := rpc.Dial("tcp", <-addr)
+func call(addrCh chan string) {
+	client, _ := rpc.DialHTTP("tcp", <-addrCh)
 	defer func() { _ = client.Close() }()
 
 	time.Sleep(time.Second)
@@ -56,4 +48,11 @@ func main() {
 		}(i)
 	}
 	wg.Wait()
+}
+
+func main() {
+	log.SetFlags(0)
+	ch := make(chan string)
+	go call(ch)
+	startServer(ch)
 }

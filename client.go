@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,7 +9,9 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"rpc/codec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -201,6 +204,7 @@ func (client *Client) send(call *Call) {
 			call.done()
 		}
 	}
+
 }
 
 // Go 异步调用该函数，它返回表示调用的 Call 结构
@@ -274,4 +278,42 @@ func dialTimeout(f newClientFunc, network, address string, opts ...*Option) (cli
 // Dial 连接到指定的网络地址的 RPC 服务
 func Dial(network, address string, opts ...*Option) (*Client, error) {
 	return dialTimeout(NewClient, network, address, opts...)
+}
+
+// NewHTTPClient 通过 HTTP 作为传输协议创建一个客户端实例
+func NewHTTPClient(conn net.Conn, opt *Option) (*Client, error) {
+	_, _ = io.WriteString(conn, fmt.Sprintf("CONNECT %s HTTP/1.0\n\n", defaultRPCPath))
+
+	resp, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "CONNECT"})
+	if err == nil && resp.Status == connected {
+		return NewClient(conn, opt)
+	}
+	if err == nil {
+		err = errors.New("unexpected HTTP response: " + resp.Status)
+	}
+	return nil, err
+}
+
+// DialHTTP 连接到指定网络地址的 HTTP RPC 服务器
+// 监听默认 HTTP RPC 路径
+func DialHTTP(network, address string, opts ...*Option) (*Client, error) {
+	return dialTimeout(NewHTTPClient, network, address, opts...)
+}
+
+// XDial 调用不同的函数来连接 RPC 服务器
+// 根据第一个参数 rpcAddr.
+// rpcAddr 是表示 rpc 服务器的通用格式(protocol@addr)
+// 例如，http@10.0.0.1:7001、tcp@10.0.0.1:9999、unix@/tmp/rpc.sock
+func XDial(rpcAddr string, opts ...*Option) (*Client, error) {
+	parts := strings.Split(rpcAddr, "@")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("rpc client err: wrong format '%s', expect protocal@addr", rpcAddr)
+	}
+	protocol, addr := parts[0], parts[1]
+	switch protocol {
+	case "http":
+		return DialHTTP("tcp", addr, opts...)
+	default:
+		return Dial(protocol, addr, opts...)
+	}
 }
